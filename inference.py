@@ -44,6 +44,7 @@ class Network:
         self.device = ""
         self.model_xml = ""
         self.model_bin = ""
+        self.infer_request = None
 
     def load_model(self, model_location, device="CPU", cpu_extension=None):
         ### TODO: Load the model ###
@@ -54,21 +55,21 @@ class Network:
         self.model_xml = os.path.splitext(model_location)[0] + ".xml"
         self.model_bin = os.path.splitext(model_location)[0] + ".bin"
         self.device = device
-        self.model = IENetwork(self.model_xml, self.model_bin) #Load the structure and weights
         self.core = IECore()
-        self.net = self.core.load_network(self.model, device_name = self.device, num_request = 1)
+        self.model = self.core.read_network(model=self.model_xml, weights=self.model_bin) #Changing because deprecated
+        self.net = self.core.load_network(self.model, device_name = self.device, num_requests = 1)
         if cpu_extension:
-            extension_path==cpu_extension, device_name=self.device)
-        print(self.model.layers)
+            self.core.add_extension(cpu_extension, device_name=self.device)
         self.input_layer = next(iter(self.model.inputs))
-        self.output_layer = next(iter(self.model.outpus))
+        self.output_layer = next(iter(self.model.outputs))
+        self.infer_request = 0
         return self.net
 
     def get_input_shape(self):
         ### TODO: Return the shape of the input layer ###
-        return self.input_layer
+        return self.model.inputs[self.input_layer].shape
 
-    def exec_net(self, image):
+    def exec_net(self, image, ):
         ### TODO: Start an asynchronous request ###
         ### TODO: Return any necessary information ###
         ### Note: You may need to update the function parameters. ###

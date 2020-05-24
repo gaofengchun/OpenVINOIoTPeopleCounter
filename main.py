@@ -24,7 +24,7 @@ import os
 import sys
 import time
 import socket
-import json
+import json #Convert data
 import cv2
 
 import logging as log
@@ -34,11 +34,39 @@ from argparse import ArgumentParser
 from inference import Network
 
 from termcolor import colored #Color the output
+import signal, sys #Get Control + C Data, send data
+import numpy as np #Transpose function
+from random import uniform #Get a new combination of colors very time
+
 
 # MQTT server environment variables
 HOSTNAME = socket.gethostname()
 MQTT_KEEPALIVE_INTERVAL = 60
 
+terminate = False
+def signal_handling(signum,frame):
+    global terminate
+    terminate = True
+
+def update_existing(detection, location, maximum_locations = 5):
+    detection['past_locations'].append(detection['current_location'])
+    detection['current_location'] = location
+    detection['frame_number'] = location['frame']
+    if len(detection['past_locations']) > maximum_locations :
+        detection['past_locations'].pop(0) #Delete first element
+    location_x = location['chest'][0]
+    location_y = location['chest'][1]
+    sum_location_x = 0
+    sum_location_y = 0
+    for i in reversed(detection['past_locations']):
+        sum_location_x+= (location_x - i['chest'][0])
+        sum_location_y+= (location_y - i['chest'][1])
+        location_x = i['chest'][0]
+        location_y = i['chest'][1]
+    sum_location_x/= (len(detection['past_locations']))
+    sum_location_y/= (len(detection['past_locations']))
+    detection['tendency'] = (sum_location_x, sum_location_y)
+    return detection
 
 def build_argparser():
     """
@@ -47,27 +75,27 @@ def build_argparser():
     :return: command line arguments
     """
     parser = ArgumentParser()
-    parser.add_argument("-i", '--input', help=i_desc, required=True,
+    parser.add_argument("-i", '--input', required=True,
                         help="Input file(number if camera, or file path to a videofile)")
-    parser.add_argument("-d", '--device', help=d_desc, default='CPU',
+    parser.add_argument("-d", '--device', default='CPU',
                         help="Specify the target device to infer on: "
                         "CPU, GPU, FPGA or MYRIAD is acceptable. Sample "
                         "will look for a suitable plugin for device "
-                        "specified (CPU by default)"))
-    parser.add_argument("-o", help=o_desc, default="", help="If given, it will save a videofile with the result of the detection.")
-    parser.add_argument("-m", '--model', help=m_desc, default="Model/person-detection-retail-0013.xml")
-    parser.add_argument("-pt",'--prob_threshold', help=p_desc, type=float, default=0.5,
+                        "specified (CPU by default)")
+    parser.add_argument("-o", default="", help="If given, it will save a videofile with the result of the detection.")
+    parser.add_argument("-m", '--model', default="Model/person-detection-retail-0013.xml")
+    parser.add_argument("-pt",'--prob_threshold', type=float, default=0.5,
                         help="Probability threshold for detections filtering(0.5 by default)")
-    parser.add_argument("--ip", help=ip_desc, type=str, default= socket.gethostbyname(HOSTNAME))
+    parser.add_argument("--ip", type=str, default= socket.gethostbyname(HOSTNAME))
     parser.add_argument("-l", "--cpu_extension", required=False, type=str,
                         default=None, help="MKLDNN (CPU)-targeted custom layers."
                          "Absolute path to a shared library with the"
                          "kernels impl.")
-    parser.add_argument("--port", help=port_desc, type=int, default=3001)
-    parser.add_argument("-n", help=n_desc, type=str, default="entry.json")
-    parser.add_argument("-x", help=x_desc, type=str, default="exit.json")
-    parser.add_argument("--debug", help=debug_desc, type=bool, default=False)
-    parser.add_argument("--headless", help=headless_desc, type=bool, default=False)
+    parser.add_argument("--port", help="", type=int, default=3002)
+    parser.add_argument("-n", help="", type=str, default="entry.json")
+    parser.add_argument("-x", help="", type=str, default="exit.json")
+    parser.add_argument("--debug", help="", type=bool, default=False)
+    parser.add_argument("--headless", help="headless_desc", type=bool, default=False)
     return parser
 
 
@@ -103,7 +131,6 @@ def infer_on_stream(args, client):
     process = True
     help = False
     scale = 5
-    ret,frame = cap.read()
     action = ""
     color_help = (251,36,11)
     color_warning = (102,255,255)
@@ -125,10 +152,10 @@ def infer_on_stream(args, client):
     prob_threshold = args.prob_threshold
 
     ### TODO: Load the model through `infer_network` ###
-    infer_network.load_model(arg.model, device=args.device, cpu_extension=args.cpu_extension)
+    infer_network.load_model(args.model, device=args.device, cpu_extension=args.cpu_extension)
 
     ### TODO: Handle the input stream ###
-    cap = cv2.VideoCapture(args.i)
+    cap = cv2.VideoCapture(args.input)
     ret,frame = cap.read()
     frame_width = frame.shape[1]
     frame_height = frame.shape[0]
@@ -140,12 +167,9 @@ def infer_on_stream(args, client):
     if args.headless:
         print(colored("The app is running in headless mode!",'magenta'))
         print(colored("Please press Control + C to terminate",'magenta'))
-        print(colored("To define new entry and exit boxes please disable headless mode!",'magenta'))
-    if (args.headless and noExitBox) or (args.headless and noEntryBox) :
-        sys.exit('Please disable the headless mode and select manually the entry and/or exit bounding boxes! Exiting')
     start = time.time() #Start time to calculate FPS
     signal.signal(signal.SIGINT,signal_handling)
-
+    total_number_people = 0
     while cap.isOpened():
         if terminate:
             print(colored("Finishing the cycle", 'green'))
@@ -153,7 +177,7 @@ def infer_on_stream(args, client):
         number_of_people = 0
         frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
         ### TODO: Read from the video capture ###
-        if process and not noExitBox and not noEntryBox:
+        if process:
             ret,frame = cap.read()
             if not ret:
                 break
@@ -164,11 +188,16 @@ def infer_on_stream(args, client):
             pp_frame = np.transpose(pp_frame, (2,0,1))
             pp_frame = np.reshape(pp_frame, (1,nw_shape[1],nw_shape[2],nw_shape[3]))
             ### TODO: Start asynchronous inference for specified request ###
-            infer_network.async_inference(pp_frame)
+            time_inference = int(round(time.time() * 1000)) #Start time to calculate FPS
+            infer_network.exec_net(pp_frame)
             ### TODO: Wait for the result ###
             while infer_network.wait():
-                print(infer_network.wait())
-            output = infer_network.extract_output()
+                pass
+            ### TODO: Get the results of the inference request ###
+            time_end_inference = int(round(time.time() * 1000))
+            #print("Time of inference: " +str(time_end_inference - time_inference) + "ms")
+            output = infer_network.get_output()
+
             if args.debug:
                 print("--------------------------------")
                 print("Frame number: " + str(frame_number))
@@ -181,8 +210,8 @@ def infer_on_stream(args, client):
                     cv2.circle(past_frame, x['current_location']['chest'], int(x['current_location']['width']/2), x['color'], 1)
                     cv2.putText(past_frame, str(x['id']), (x['current_location']['corner'][0], int(x['current_location']['corner'][1] + x['current_location']['height']/2) ), cv2.FONT_HERSHEY_SIMPLEX ,1, x['color'], 2, cv2.LINE_AA)
             for i in output[0][0]:
-                if float(i[2]) > args.p:
-                    location = {'corner':(0,0),'height':0, 'width':0, 'area':0, 'chest':(0,0), 'frame': 0}
+                if float(i[2]) > args.prob_threshold:
+                    location = {'corner':(0,0),'height':0, 'width':0, 'area':0, 'chest':(0,0), 'frame': 0, 'prob': i[2]}
                     p1x = int(i[3]*frame_width)
                     p1y = int(i[4]*frame_height)
                     p2x = int(i[5]*frame_width)
@@ -195,6 +224,7 @@ def infer_on_stream(args, client):
                     location['frame'] = frame_number
                     distancep2_chest = cv2.norm(location['corner'], location['chest'], normType=cv2.NORM_L2)
                     sort_detection = []
+
                     for x in detections:
                         calculated_distance = cv2.norm(x['current_location']['chest'], location['chest'], normType=cv2.NORM_L2)
                         speed_distance = cv2.norm((int(x['current_location']['chest'][0] + x['tendency'][0]),int(x['current_location']['chest'][1] + x['tendency'][1])), location['chest'], normType=cv2.NORM_L2)
@@ -249,6 +279,7 @@ def infer_on_stream(args, client):
                         draw_color = detections[index]['color']
                         number_of_people+=1
                     else:
+                        #Detected a new person
                         if args.debug:
                             print("%%%%%%%%%%%%%%%%%%%%%")
                             print("New person detected!")
@@ -258,6 +289,8 @@ def infer_on_stream(args, client):
                         tracker['current_location'] = location
                         tracker['color'] =  (int(uniform(125, 255)), int(uniform(125, 255)), int(uniform(125, 255)))
                         tracker['frame_number'] =  frame_number
+                        tracker['frame_begin'] =  frame_number
+
                         tracker['id'] =  ids[0]
                         ids.pop(0)
                         detections.append(tracker)
@@ -265,10 +298,15 @@ def infer_on_stream(args, client):
                         index = len(detections) - 1
                         draw_color = tracker['color']
                         number_of_people+=1
+                        total_number_people += 1
+
                     cv2.circle(output_frame, location['chest'], 3, draw_color, -1)
                     cv2.rectangle(output_frame,(p1x,p1y), (p2x, p2y), draw_color, 3)
-                    cv2.putText(output_frame, str(id), (p1x,p1y) , cv2.FONT_HERSHEY_SIMPLEX ,
+                    cv2.putText(output_frame, str(id), (location['corner'][0], location['corner'][1]+30) , cv2.FONT_HERSHEY_SIMPLEX ,
                                1, draw_color, 2, cv2.LINE_AA)
+                    cv2.putText(output_frame, "{0:.2f}".format(float(location['prob'])), (location['corner'][0] + location['width'], location['corner'][1] + 30) , cv2.FONT_HERSHEY_SIMPLEX ,
+                               1, draw_color, 2, cv2.LINE_AA)
+
                     if len(detections) > 0:
                         if len(detections[index]['past_locations']) > 0:
                             cv2.line(output_frame, (int(location['corner'][0] + location['width']/2), location['corner'][1]), \
@@ -292,43 +330,13 @@ def infer_on_stream(args, client):
                         print("TUV: " + str(tuv))
                         print(x['tendency'])
                         print("******************************")
-
-                    if x['current_location']['chest'][0] + x['tendency'][0] > entry_parameters['points'][0][0] and \
-                    x['current_location']['chest'][0] + x['tendency'][0] < entry_parameters['points'][1][0] and \
-                    x['current_location']['chest'][1] + x['tendency'][1] > entry_parameters['points'][0][1] and \
-                    x['current_location']['chest'][1] + x['tendency'][1] < entry_parameters['points'][1][1]:
-                        coincidence = False
-                        for uv in entry_parameters['u_vectors']:
-                            if uv[0] == tuv[0] and uv[1] == tuv[1] and len(x['past_locations']) > 3:
-                                coincidence = True
-                                break
-                        if coincidence:
-                            if args.debug:
-                                print("#######Person exited via entry box!########## ")
-                            entry_people+=1
-                            if mqttActive:
-                                client.publish("entry", payload=str(entry_people))
-                        if args.debug:
-                            print("Exit via entry box Coincidence: " + str(coincidence))
-                    if x['current_location']['chest'][0] + x['tendency'][0] > exit_parameters['points'][0][0] and \
-                    x['current_location']['chest'][0] + x['tendency'][0] < exit_parameters['points'][1][0] and \
-                    x['current_location']['chest'][1] + x['tendency'][1] > exit_parameters['points'][0][1] and \
-                    x['current_location']['chest'][1] + x['tendency'][1] < exit_parameters['points'][1][1]:
-                        coincidence = False
-                        for uv in exit_parameters['u_vectors']:
-                            if uv[0] == tuv[0] and uv[1] == tuv[1] and len(x['past_locations']) > 3:
-                                coincidence = True
-                                break
-                        if coincidence:
-                            if args.debug:
-                                print("#######Person exited via exit box!########## ")
-                            exit_people+=1
-                            if mqttActive:
-                                client.publish("exit", payload=str(exit_people))
-                        if args.debug:
-                            print("Exit via exit box coincidence: " + str(coincidence))
+                    ### Topic "person/duration": key of "duration" ###
+                    if mqttActive:
+                        person_duration = json.dumps({'duration':int((frame_number - x['frame_begin'])/fps)})
+                        client.publish("person/duration", payload=person_duration)
                     ids.append(x['id'])
                     detections.remove(x)
+
             frame_counter+=1
             if(time.time() - start) >= 1:
                 fps = frame_counter
@@ -336,10 +344,7 @@ def infer_on_stream(args, client):
                 total_fps_measurements+=1
                 start = time.time()
                 frame_counter = 0
-            #Send data every 60 frames
-            if frame_number%60:
-                if mqttActive:
-                    client.publish("people", payload=str(number_of_people))
+
         else:
             output_frame = frame.copy()
         if args.o:
@@ -348,41 +353,11 @@ def infer_on_stream(args, client):
         cv2.putText(output_frame, 'Toggle H for help', (int(3*output_frame.shape[1]/7),int(4*output_frame.shape[0]/7) ) , cv2.FONT_HERSHEY_SIMPLEX,0.75, color_help, 2, cv2.LINE_AA)
         if help:
             cv2.putText(output_frame, "Press: ", (int(3*output_frame.shape[1]/7),int(4.25*output_frame.shape[0]/7) ) , cv2.FONT_HERSHEY_SIMPLEX,0.78, color_help, 2, cv2.LINE_AA)
-            cv2.putText(output_frame, "x: To select the exit bounding box", (int(3*output_frame.shape[1]/7),int(4.50*output_frame.shape[0]/7) ) , cv2.FONT_HERSHEY_SIMPLEX,0.83, color_help, 2, cv2.LINE_AA)
-            cv2.putText(output_frame, "n: To select the entry bounding box", (int(3*output_frame.shape[1]/7),int(4.75*output_frame.shape[0]/7) ) , cv2.FONT_HERSHEY_SIMPLEX,0.88, color_help, 2, cv2.LINE_AA)
             cv2.putText(output_frame, "Space bar: Toggle to start/stop processing", (int(3*output_frame.shape[1]/7),int(5*output_frame.shape[0]/7) ) , cv2.FONT_HERSHEY_SIMPLEX,0.88, color_help, 2, cv2.LINE_AA)
             cv2.putText(output_frame, "Esc: Exit", (int(3*output_frame.shape[1]/7),int(5.25*output_frame.shape[0]/7) ) , cv2.FONT_HERSHEY_SIMPLEX,0.88, color_help, 2, cv2.LINE_AA)
-            cv2.putText(output_frame, "Enter: Accept the selection", (int(3*output_frame.shape[1]/7),int(5.5*output_frame.shape[0]/7) ) , cv2.FONT_HERSHEY_SIMPLEX,0.88, color_help, 2, cv2.LINE_AA)
-
-        if not entry_parameters['first_point'] and not entry_parameters['last_point']:
-            cv2.putText(output_frame, "Please press \"n\" and click over the image to select the first entry point", (0,int(1*output_frame.shape[0]/7) ) , cv2.FONT_HERSHEY_SIMPLEX,0.88, color_informative, 2, cv2.LINE_AA)
-        elif entry_parameters['first_point'] and not entry_parameters['last_point']:
-            cv2.putText(output_frame, "Click over the image to select the last entry point", (0,int(1.3*output_frame.shape[0]/7) ) , cv2.FONT_HERSHEY_SIMPLEX,0.88, color_informative, 2, cv2.LINE_AA)
-        elif not entry_parameters['complete_vectors']:
-            cv2.putText(output_frame, "Please click inside the Entry Bounding Box to configure the entry directions, when finish press Enter key", (0,int(1.6*output_frame.shape[0]/7) ) , cv2.FONT_HERSHEY_SIMPLEX,0.70, color_informative, 2, cv2.LINE_AA)
-        if not exit_parameters['first_point'] and not exit_parameters['last_point']:
-            cv2.putText(output_frame, "Please press \"x\" and click over the image to select the first exit point", (0,int(5*output_frame.shape[0]/7) ) , cv2.FONT_HERSHEY_SIMPLEX,0.88, color_warning, 2, cv2.LINE_AA)
-        elif exit_parameters['first_point'] and not exit_parameters['last_point']:
-            cv2.putText(output_frame, "Please click over the image to select the last exit point", (0,int(5.3*output_frame.shape[0]/7) ) , cv2.FONT_HERSHEY_SIMPLEX,0.88, color_warning, 2, cv2.LINE_AA)
-        elif not exit_parameters['complete_vectors']:
-            cv2.putText(output_frame, "Please click inside the Exit Bounding Box to configure the exit directions, when finish press Enter key", (0 ,int(5.6*output_frame.shape[0]/7) ) , cv2.FONT_HERSHEY_SIMPLEX,0.70, color_warning, 2, cv2.LINE_AA)
-
-        if entry_parameters['first_point']:
-            cv2.rectangle(output_frame, entry_parameters['points'][0], entry_parameters['points'][1], entry_color, 3)
-            cv2.rectangle(output_frame,(int(-40 + entry_parameters['points'][0][0] + (entry_parameters['points'][1][0] - entry_parameters['points'][0][0])/2), entry_parameters['points'][0][1]), (int(40 + entry_parameters['points'][0][0] + (entry_parameters['points'][1][0] - entry_parameters['points'][0][0])/2), entry_parameters['points'][0][1] + 30), (0,0,0), -1)
-            cv2.putText(output_frame, 'Entry: ' + str(entry_people), (int(entry_parameters['points'][0][0] + (entry_parameters['points'][1][0] - entry_parameters['points'][0][0])/2 - 30), entry_parameters['points'][0][1] + 20) , cv2.FONT_HERSHEY_SIMPLEX,0.5, entry_color, 2, cv2.LINE_AA)
-        if exit_parameters['first_point']:
-            cv2.rectangle(output_frame, exit_parameters['points'][0], exit_parameters['points'][1], exit_color, 3)
-            cv2.rectangle(output_frame,(int(-40 + exit_parameters['points'][0][0] + (exit_parameters['points'][1][0] - exit_parameters['points'][0][0])/2), exit_parameters['points'][0][1]), (int(40 + exit_parameters['points'][0][0] + (exit_parameters['points'][1][0] - exit_parameters['points'][0][0])/2), exit_parameters['points'][0][1] + 30), (0,0,0), -1)
-            cv2.putText(output_frame, 'Exit: ' + str(exit_people), (int(exit_parameters['points'][0][0] + (exit_parameters['points'][1][0] - exit_parameters['points'][0][0])/2 - 30), exit_parameters['points'][0][1] + 20) , cv2.FONT_HERSHEY_SIMPLEX,0.5, exit_color, 2, cv2.LINE_AA)
-        if exit_parameters['first_point'] and exit_parameters['last_point']:
-            cv2.circle(output_frame, exit_parameters['center'],3, exit_color, 1)
-            for uv in exit_parameters['u_vectors']:
-                cv2.line(output_frame, exit_parameters['center'],(int(exit_parameters['center'][0] + 5*scale*uv[0]), int(exit_parameters['center'][1] + 3*scale*uv[1])), exit_color, 2  )
-        if entry_parameters['first_point'] and entry_parameters['last_point']:
-            cv2.circle(output_frame, entry_parameters['center'],3, entry_color, 1)
-            for uv in entry_parameters['u_vectors']:
-                cv2.line(output_frame, entry_parameters['center'],(int(entry_parameters['center'][0] + 5*scale*uv[0]), int(entry_parameters['center'][1] + 3*scale*uv[1])), entry_color, 2  )
+        if mqttActive:
+            person_data = json.dumps({'count':number_of_people,'total':total_number_people})
+            client.publish("person", payload=person_data)
         if not args.headless:
             cv2.rectangle(output_frame,(0, 30),  (100, 0), (0,0,0), -1)
             cv2.putText(output_frame, 'People: ' + str(number_of_people), (0, 20) , cv2.FONT_HERSHEY_SIMPLEX,0.5, (44,245,131), 2, cv2.LINE_AA)
@@ -390,35 +365,24 @@ def infer_on_stream(args, client):
             cv2.putText(output_frame, 'Frame number: ' + str(frame_number), (int(6*output_frame.shape[1]/7), 20) , cv2.FONT_HERSHEY_SIMPLEX, 0.5, (44,235,131), 2, cv2.LINE_AA)
             cv2.rectangle(output_frame,(int(output_frame.shape[1]/2-30), output_frame.shape[0] - 40), (int(output_frame.shape[1]/2+40), output_frame.shape[0]), (0,0,0), -1)
             cv2.putText(output_frame, 'FPS: ' + str(fps), (int(output_frame.shape[1]/2  - 20), int(output_frame.shape[0] - 10)) , cv2.FONT_HERSHEY_SIMPLEX, 0.5, (44,235,131), 2, cv2.LINE_AA)
-
             cv2.imshow("Output Video", output_frame)
             if args.debug:
                 cv2.imshow("Original", frame)
                 cv2.imshow("Past detection", past_frame)
-            k = cv2.waitKey(30)
+            k = cv2.waitKey(41)
+            #24fps
             if k == 27:
                 break
             elif k == 32: #Space
                 process = not process
             elif k == 104: #h OR h
                 help = not help
-            elif k == 120: #x or X
-                action = "exit"
-                exit_parameters = {'points': [(0,0),(0,0)], 'center': (0,0), 'u_vectors':[], 'first_point': False, 'last_point': False, 'complete_vectors': False}
-            elif k == 110: #n or N
-                entry_parameters = {'points': [(0,0),(0,0)], 'center': (0,0), 'u_vectors':[], 'first_point': False, 'last_point': False, 'complete_vectors': False}
-                action = "entry"
-            elif k == 13 or k == 271: #Enter
-                if action == "entry":
-                    entry_parameters['complete_vectors'] = True
-                    noEntryBox = False
-                elif action == "exit":
-                    exit_parameters['complete_vectors'] = True
-                    noExitBox = False
-                action = ""
-
+        ### TODO: Send the frame to the FFMPEG server ###
+        output_resized = cv2.resize(output_frame, (768,432))
+        sys.stdout.buffer.write(output_resized)
+        sys.stdout.flush()
     print(colored("=================People counted======================", 'green'))
-    print(colored("Entry: " + str(entry_people), 'green'))
+    print(colored("Entry: " + str("Put time"), 'green'))
     print(colored("Exit: " + str(exit_people), 'green'))
     print(colored("=====================================================", 'green'))
     if total_fps_measurements > 0:
@@ -426,28 +390,22 @@ def infer_on_stream(args, client):
         print(colored("Average FPS: " + str(int(total_fps/total_fps_measurements)), 'green'))
         print(colored("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~", 'green'))
 
-    with open(args.n, 'w') as outfilen:
-        json.dump(entry_parameters, outfilen)
-    print(colored("Saved entry parameters as: " + args.n,'cyan'))
-    with open(args.x, 'w') as outfilex:
-        json.dump(exit_parameters, outfilex)
-    print(colored("Saved exit parameters as: " + args.x,'cyan'))
     cv2.destroyAllWindows()
     cap.release()
     client.disconnect()
     if args.o:
         out.release()
 
-            ### TODO: Get the results of the inference request ###
+
 
             ### TODO: Extract any desired stats from the results ###
 
             ### TODO: Calculate and send relevant information on ###
             ### current_count, total_count and duration to the MQTT server ###
             ### Topic "person": keys of "count" and "total" ###
-            ### Topic "person/duration": key of "duration" ###
 
-        ### TODO: Send the frame to the FFMPEG server ###
+
+
 
         ### TODO: Write an output image if `single_image_mode` ###
 
