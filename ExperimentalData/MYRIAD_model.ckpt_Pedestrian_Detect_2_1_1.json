@@ -1,0 +1,1 @@
+{"videofile": "Pedestrian_Detect_2_1_1.mp4", "model": "model.ckpt.xml", "device": "MYRIAD", "processor": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz", "people_counted": 12, "avgFPS": 14, "avgInferenceTimems": 65}

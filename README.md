@@ -1,12 +1,11 @@
 # People Counting Project
 
-Part of the **#30_days_udacity Challenge**
-
 ## Description
-This project is intended to develop a counting algorithm to know how many people have left a  scene(for instance: A Bus Door, a crosswalk, a shop, etc.) via an exit and enter area, from a High-Angle camera. The algorithm detect and track the pedestrians via an ID and calculate the direction of every ID with the past positions of the subjects. The entry and exit bounding boxes are defined by the user. The direction of exiting and entering are necessary due to in some cases(refer to Concepts), the entry and exit are in the same area(for example a rear bus door). Some useful applications of the algorithm may be:
+This project is intended to develop a counting algorithm to know how many people is in Room.. The algorithm detect and track the pedestrians via an ID and calculate the direction of every ID with the past positions of the subjects. Some useful applications of the algorithm may be:
 - Total Passengers count in buses, metros, etc.
 - Calculate the total of people assisting to an event
 - Analytics
+- Automatize the entry, exit doors to allow people to respect the social distancing.
 
 
 ## Motivation
@@ -18,6 +17,17 @@ My motivation behind this project is because in my country Ecuador is very commo
 - Paho-mqtt
 - Mosquitto
 - termcolor
+- NodeJS
+- Javascript
+- Bootstrap
+- React
+
+### Features
+- Using the Intel's People Counting Template made in React
+- Select the max number of people inside the room.
+- Show/Hide the Stats data of the video
+- Start/Stop transmission of the video stream
+- Custom people tracking algorithm.
 
 ### Dependencies
 Install [OpenVINO Toolkit](https://docs.openvinotoolkit.org/latest/index.html) for your distribution
@@ -30,8 +40,8 @@ sudo pip3 install numpy paho-mqtt termcolor py-cpuinfo
 ```
 
 ### Instructions
-- Clone the repository: `git clone https://gitlab.com/josejacomeb/openvino-peoplecounter.git`
-- Change your current directory to the project directory *openvino-peoplecounter*
+- Clone the repository: `git clone https://github.com/josejacomeb/OpenVINOIoTPeopleCounter.git`
+- Change your current directory to the project directory *OpenVINOIoTPeopleCounter*
 - Install the dependencies for the Mosca Server
 
 
@@ -46,14 +56,35 @@ npm install
 cd ../ui
 npm install
 ```
-- Setup your OpenVINO environment `source /opt/intel/openvino/bin/setupvars.sh -pyver 3.6`
-- Start the Mosquito Server `mosquitto -c websockets.conf`
-- Start the NodeJS Server `./WebServer/openVINOPeopleCounting/bin` (After you can access to the main page in a Web Browser with the adress *device_ip*:3000, for example localhost:3000)
+- Setup your OpenVINO environment `source /opt/intel/openvino/bin/setupvars.sh`
+- Start the Mosca Server
+
+```
+cd webservice/server/node-server
+node ./server.js
+```
+
+- Start the NodeJS Server
+
+```sh
+cd webservice/ui
+npm run dev
+```
+
+ (After you can access to the main page in a Web Browser with the adress *device_ip*:3000, for example 0.0.0.0:3000)
 - Execute the python script `python3 app.py -i ` (You must include a video or the id of a camera, my test files: [Video Test Files](https://drive.google.com/open?id=1RkcITNEsRpw5I01vvI9t7Pj0hgRV_GZF)
 
-**Note: Every Video Test file includes a configured entry and exit box, you can use it to quick test the algorithm!**
+**Video Demonstration**
 
-[![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/nNR66ZM1jaU/0.jpg)](https://youtu.be/nNR66ZM1jaU)
+#Test in Raspberry Pi
+Unfortunately, the FFMPEG server(ffserver) is deprecated, so until now, I didn't make it works, I connected it to the server of my laptop to test.
+
+![Test in RPI][resources/TestRPI.png]
+
+#Test in the PC
+Click on the following link to open the video Demonstration
+
+[![Test in Youtube](http://img.youtube.com/vi/8lGoEMAfvX8/0.jpg)](https://youtu.be/8lGoEMAfvX8)
 
 ###Usage
 
@@ -63,72 +94,63 @@ python3 app.py [arguments]
 
 Examples:
 
--Execute the script, load the Videos/factory.mp4 file, as I don't specify the bounding boxes file, the program will ask for it processing window.
+-Execute the script, load the resources/Pedestrian_Detect_2_1_1.mp4 file, the program will run with the default data.
 
 ```
-./app.py -i Videos/factory.mp4
+python3 main.py -i --i resources/Pedestrian_Detect_2_1_1.mp4
 ```
 
--Execute the script, load the file from the folder Videos/pedestrian.mp4, with the entry and exit bounding given by the user and with headless operation.
+-Execute the script, load the file from the folder Videos/pedestrian.mp4, and send the data to the FFMPEG Server
 
 ```
-./app.py -i Videos/pedestrian.mp4 -n Videos/pedestrian_entry.json -x Videos/pedestrian_exit.json --headless True
+python3 main.py -i resources/Pedestrian_Detect_2_1_1.mp4 -m Model/person-detection-retail-0013.xml -d CPU -pt 0.6 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
 ```
 
 
 #### **Arguments**
 ```
-  -i (String) The location of the input file(Video or camera index) (Required)
-  -d (String)The device name, default: 'CPU'
-  --cpu_extension (String) Load the correct extension for your device, default:
+  -i or --input (String) The location of the input file(Video or camera index) (Required)
+  -d or --device (String) The device name, default: 'CPU'
+  -l or --cpu_extension (String) Load the correct extension for your device, default:
   -o (String) Save the video processing file with the name given, default: "libcpu_extension_sse4.so"
-  -m (String) The location the the OpenVINO™ Model
-  -p (Float) Minimum confidence threshold[0-1.0], default=0.5
-  --ip (String) IP Address of the Mosquitto Server, default: localhost
-  --port (Integer) Port of the Mosquitto Server, default: 1883
-  -n (String) File containing data of the entry bounding box of the video file, default: entry.son
-  -x (String) File containing data of the exit bounding box of the video file, default: exit.son
+  -m or model (String) The location the the OpenVINO™ Model, default: Model/person-detection-retail-0013.xml
+  -pt or --prob_threshold (Float) Minimum confidence threshold[0-1.0], default=0.6
+  --ip (String) IP Address of the MQTT Server, default: localhost
+  --port (Integer) Port of the Mosca Server, default: 3002
   --debug (Boolean Enable debug information, default: False
   --headless (Boolean) Enable headless mode, default: False
+  --stopSending (Boolean) Allow to the user to send or not send the stream via FFMPEG, default False
 ```
-### Graphical
-Press
+### Models used
+The first both models were converted with the model optimizer and they're in the Model's folders of the project. It was converted to FP16 and the instructions to convert are inside the Model/Tensorflow folder.
 
-  x: To select the exit bounding box (Also to reset the last exit bounding box)
+- [Tensorflow ssd_inception_v2_coco_2018_01_28](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md)
 
-  n: To select the entry bounding box (Also to reset the last entry bounding box)
+- [Tensorflow ssd_mobilenet_v2_coco_2018_03_29](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md)
 
-  Enter: Accept the selected box
-
-  Space Bar: Toggle to start/stop the video and processing
-
-###Concepts
-#### Person
-A person, is a bounding box result of the inference with OpenVINO™ Toolkit and has some  properties such as a numeric ID and a vector of direction shown in the upper part of the box.
-
-![alt text](WebServer/openVINOPeopleCounting/public/images/id.png "ID image")
-
-#### Entry/Exit Bounding box
-Entry (green) and Exit(red) bounding boxes can be configured horizontally or vertically. They define a naturally entry and exit area (such as the end of a street, a door, etc) to start to count people who left inside each described area. Example:  
-![alt text](WebServer/openVINOPeopleCounting/public/images/boundinboxes.png "ID image")
-#### U Vectors
-Useful to define the expected directions in which people will leave scene, if the person leaves in another direction, he/she isn't added to the counting. In the case such as below, we can define a single entry and exit box, with the direction the algorithm can differentiate between people exiting and entering of a door.
-![alt text](WebServer/openVINOPeopleCounting/public/images/bothsides.png "ID image")
+- [OpenVINO person-detection-retail-0013](https://docs.openvinotoolkit.org/2018_R5/_docs_Retail_object_detection_pedestrian_rmnet_ssd_0013_caffe_desc_person_detection_retail_0013.html)
 
 ###Performance
-The tests were conducted in the videos uploaded in my Cloud, the entry/exit boxes were loaded and I tested the Average FPS of every video in the CPU of my Laptop(Intel Core i7-6700HQ) but I'd like to test it in a Intel Neural Stick :D.
 
-| File                  | Resolution    | GUI Average FPS | Headless Average FPS  |
-| -------------         |:-------------:| :-----:         |   :--------------:    |
-| aus_pedestrian.webm   | 1280x720      |  12             | 50                    |
-| both_sides.mp4        | 1280x720      |  12             | 47                    |   
-| chinapedestrians.mp4  | 1280x720      |  12             | 42                    |
-| factory.mp4           | 1920x1080     |  13             | 41                    |
-| pedestrian.mp4        | 640x360       |  11             | 35                    |
-### Road Map
-- [x]Include instructions to configure the system
-- [x]Include the Model in Python
-- [x]Pre-Process and Proccess the images on Python
-- [x]Get the outputs of the inference and graph on it
-- [x]Use a tracking algorithm to detect if the person is entering or exiting the Bus
-- [x]Send information to a server
+Two devices where tested in this experiment, the data is under the ExperimentalData Folder, a Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz and a Raspberry Pi with it's MYRIAD Neural Compute Stick.
+####Test in the Laptop
+
+| Model                            | People Counted| AVG FPS | AVG Inference Time[ms]   |
+| -------------                    |:-------------:| :-----:         |   :--------------:    |
+| person-detection-retail-0013     |   6           |  35             | 24                    |
+| ssd_inception_v2_coco_2018_01_28 | 12            |  42             | 20                    |   
+| ssd_mobilenet_v2_coco_2018_03_29 | 12            |  44             | 19                    |
+
+####Test in the Laptop with NCS
+
+| Model                            | People Counted| AVG FPS | AVG Inference Time[ms]   |
+| -------------                    |:-------------:| :-----:         |   :--------------:    |
+| person-detection-retail-0013     |   6           |  7             | 132                    |
+| ssd_inception_v2_coco_2018_01_28 | 12            |  14             | 65                    |   
+| ssd_mobilenet_v2_coco_2018_03_29 | 12            |  14             | 65                    |
+####Test in the RPI with NCS
+* It was not possible to do with the another networks, I'm still investigating.
+
+| Model                            | People Counted| AVG FPS | AVG Inference Time[ms]   |
+| -------------                    |:-------------:| :-----:         |   :--------------:    |
+| person-detection-retail-0013     |   6           |  4             | 208                   |

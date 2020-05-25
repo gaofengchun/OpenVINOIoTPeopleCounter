@@ -1,0 +1,1 @@
+{"videofile": "aus_pedestrian.webm", "model": "person-detection-retail-0013.xml", "device": "CPU", "processor": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz", "people_counted": 23, "avgFPS": 28, "avgInferenceTimems": 27}
