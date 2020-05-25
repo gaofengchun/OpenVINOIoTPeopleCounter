@@ -37,13 +37,17 @@ from termcolor import colored #Color the output
 import signal, sys #Get Control + C Data, send data
 import numpy as np #Transpose function
 from random import uniform #Get a new combination of colors very time
-
+from platform import processor, system
+from os.path import split, basename, splitext
+import cpuinfo
 
 # MQTT server environment variables
 HOSTNAME = socket.gethostname()
 MQTT_KEEPALIVE_INTERVAL = 60
 
 terminate = False
+showInferenceStats = True
+stopSending = False
 def signal_handling(signum,frame):
     global terminate
     terminate = True
@@ -84,7 +88,7 @@ def build_argparser():
                         "specified (CPU by default)")
     parser.add_argument("-o", default="", help="If given, it will save a videofile with the result of the detection.")
     parser.add_argument("-m", '--model', default="Model/person-detection-retail-0013.xml")
-    parser.add_argument("-pt",'--prob_threshold', type=float, default=0.5,
+    parser.add_argument("-pt",'--prob_threshold', type=float, default=0.6,
                         help="Probability threshold for detections filtering(0.5 by default)")
     parser.add_argument("--ip", type=str, default= socket.gethostbyname(HOSTNAME))
     parser.add_argument("-l", "--cpu_extension", required=False, type=str,
@@ -95,14 +99,25 @@ def build_argparser():
     parser.add_argument("-n", help="", type=str, default="entry.json")
     parser.add_argument("-x", help="", type=str, default="exit.json")
     parser.add_argument("--debug", help="", type=bool, default=False)
-    parser.add_argument("--headless", help="headless_desc", type=bool, default=False)
+    parser.add_argument("--headless", help="headless_desc", type=bool, default=True)
+    parser.add_argument("--stopSending" ,"-s", help="Choose to send or not video", type=bool, default=False)
     return parser
 
+def on_message(client, userdata, msg):
+    global stopSending, showInferenceStats
+    jsonpayload = json.loads(msg.payload)
+    if str(msg.topic) == str('stopSending'):
+        stopSending = jsonpayload['value']
+    elif msg.topic == 'showInferenceStats':
+        showInferenceStats = jsonpayload['value']
 
 def connect_mqtt(args):
     ### TODO: Connect to the MQTT client ###
     try:
         client = mqtt.Client(transport="websockets")
+        client.on_message = on_message
+        client.subscribe("stopSending")
+        client.subscribe("showInferenceStats")
         client.connect(args.ip, port=args.port, keepalive=MQTT_KEEPALIVE_INTERVAL)
     except:
         print(colored("Can\'t connect to MQTT Server, please start the next time the program Mosquitto with mosquitto -c websockets.conf", 'yellow'))
@@ -144,7 +159,7 @@ def infer_on_stream(args, client):
     if args.debug:
         cv2.namedWindow("Original")
         cv2.namedWindow("Past detection")
-    global entry_parameters, exit_parameters
+    global entry_parameters, exit_parameters, stopSending, showInferenceStats
     global noEntryBox, noExitBox
     # Initialise the class
     infer_network = Network()
@@ -155,7 +170,12 @@ def infer_on_stream(args, client):
     infer_network.load_model(args.model, device=args.device, cpu_extension=args.cpu_extension)
 
     ### TODO: Handle the input stream ###
-    cap = cv2.VideoCapture(args.input)
+    if args.input.isnumeric():
+        dataorFile = int(args.input)
+    else:
+        dataorFile = args.input
+
+    cap = cv2.VideoCapture(dataorFile)
     ret,frame = cap.read()
     frame_width = frame.shape[1]
     frame_height = frame.shape[0]
@@ -165,11 +185,17 @@ def infer_on_stream(args, client):
         return
     ### TODO: Loop until stream is over ###
     if args.headless:
-        print(colored("The app is running in headless mode!",'magenta'))
-        print(colored("Please press Control + C to terminate",'magenta'))
-    start = time.time() #Start time to calculate FPS
+        '''print(colored("The app is running in headless mode!",'magenta'))
+        print(colored("Please press Control + C to terminate",'magenta'))'''
+        pass
     signal.signal(signal.SIGINT,signal_handling)
     total_number_people = 0
+    info_system = "OS: " + system() + " arch: " + processor()
+    info_model = "Model: {}".format(split(args.model)[1])
+    time_end_inference = 0
+    avg_time_inference = 0
+    start = time.time() #Start time to calculate FPS
+    stopSending = args.stopSending
     while cap.isOpened():
         if terminate:
             print(colored("Finishing the cycle", 'green'))
@@ -195,6 +221,7 @@ def infer_on_stream(args, client):
                 pass
             ### TODO: Get the results of the inference request ###
             time_end_inference = int(round(time.time() * 1000))
+            time_end_inference = (time_end_inference - time_inference)
             #print("Time of inference: " +str(time_end_inference - time_inference) + "ms")
             output = infer_network.get_output()
 
@@ -344,6 +371,7 @@ def infer_on_stream(args, client):
                 total_fps_measurements+=1
                 start = time.time()
                 frame_counter = 0
+                avg_time_inference += time_end_inference
 
         else:
             output_frame = frame.copy()
@@ -358,18 +386,22 @@ def infer_on_stream(args, client):
         if mqttActive:
             person_data = json.dumps({'count':number_of_people,'total':total_number_people})
             client.publish("person", payload=person_data)
-        if not args.headless:
+        if showInferenceStats:
             cv2.rectangle(output_frame,(0, 30),  (100, 0), (0,0,0), -1)
-            cv2.putText(output_frame, 'People: ' + str(number_of_people), (0, 20) , cv2.FONT_HERSHEY_SIMPLEX,0.5, (44,245,131), 2, cv2.LINE_AA)
-            cv2.rectangle(output_frame,(int(6*output_frame.shape[1]/7), 30), (int(output_frame.shape[1]), 0), (0,0,0), -1)
-            cv2.putText(output_frame, 'Frame number: ' + str(frame_number), (int(6*output_frame.shape[1]/7), 20) , cv2.FONT_HERSHEY_SIMPLEX, 0.5, (44,235,131), 2, cv2.LINE_AA)
+            cv2.putText(output_frame, 'People: {}'.format(str(number_of_people)), (0, 20) , cv2.FONT_HERSHEY_SIMPLEX,0.5, (44,245,131), 2, cv2.LINE_AA)
+            cv2.rectangle(output_frame,(0,30), (250,60), (0,0,0), -1)
+            cv2.putText(output_frame, 'Inference {} time: {} ms'.format(args.device, str(time_end_inference)) , (0, 50) , cv2.FONT_HERSHEY_SIMPLEX,0.5, (44,245,131), 2, cv2.LINE_AA)
             cv2.rectangle(output_frame,(int(output_frame.shape[1]/2-30), output_frame.shape[0] - 40), (int(output_frame.shape[1]/2+40), output_frame.shape[0]), (0,0,0), -1)
             cv2.putText(output_frame, 'FPS: ' + str(fps), (int(output_frame.shape[1]/2  - 20), int(output_frame.shape[0] - 10)) , cv2.FONT_HERSHEY_SIMPLEX, 0.5, (44,235,131), 2, cv2.LINE_AA)
+            cv2.putText(output_frame, info_system, (0, int(output_frame.shape[0] - 10)) , cv2.FONT_HERSHEY_SIMPLEX, 0.5, (44,235,131), 2, cv2.LINE_AA)
+            cv2.putText(output_frame, info_model, (0, int(output_frame.shape[0] - 30)) , cv2.FONT_HERSHEY_SIMPLEX, 0.5, (44,235,131), 2, cv2.LINE_AA)
+
+        if not args.headless:
             cv2.imshow("Output Video", output_frame)
             if args.debug:
                 cv2.imshow("Original", frame)
                 cv2.imshow("Past detection", past_frame)
-            k = cv2.waitKey(41)
+            k = cv2.waitKey(16)
             #24fps
             if k == 27:
                 break
@@ -378,17 +410,31 @@ def infer_on_stream(args, client):
             elif k == 104: #h OR h
                 help = not help
         ### TODO: Send the frame to the FFMPEG server ###
-        output_resized = cv2.resize(output_frame, (768,432))
-        sys.stdout.buffer.write(output_resized)
-        sys.stdout.flush()
+        if not stopSending:
+            output_resized = cv2.resize(output_frame, (768,432))
+            sys.stdout.buffer.write(output_resized)
+            sys.stdout.flush()
+
     print(colored("=================People counted======================", 'green'))
-    print(colored("Entry: " + str("Put time"), 'green'))
-    print(colored("Exit: " + str(exit_people), 'green'))
+    print(colored("People Counted: {}".format(total_number_people), 'green'))
     print(colored("=====================================================", 'green'))
+    print(colored("~~~~~~~~~~~~~~~~~~~~~~~~Performance~~~~~~~~~~~~~~~~~~~~~~~~", 'green'))
     if total_fps_measurements > 0:
-        print(colored("~~~~~~~~~~~~~~~~~~~~~~~~Performance~~~~~~~~~~~~~~~~~~~~~~~~", 'green'))
         print(colored("Average FPS: " + str(int(total_fps/total_fps_measurements)), 'green'))
+        print(colored("Average Inference Time: {} ms".format(str(int(avg_time_inference/total_fps_measurements))), 'green'))
         print(colored("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~", 'green'))
+    info = cpuinfo.get_cpu_info()
+    finaldata = {
+        "videofile": split(args.input)[1],
+        "model": split(args.model)[1],
+        "device": args.device,
+        "processor": info['brand'],
+        "people_counted": total_number_people,
+        "avgFPS": int(total_fps/total_fps_measurements),
+        "avgInferenceTimems": int(avg_time_inference/total_fps_measurements)
+    }
+    with open('ExperimentalData/{}_{}_{}.json'.format(finaldata['device'],splitext(basename(finaldata['model']))[0], splitext(basename(finaldata['videofile']))[0]), 'w') as outfile:
+        json.dump(finaldata, outfile)
 
     cv2.destroyAllWindows()
     cap.release()
@@ -420,6 +466,10 @@ def main():
     args = build_argparser().parse_args()
     # Connect to the MQTT server
     client = connect_mqtt(args)
+    client.on_message = on_message
+    client.subscribe("stopSending")
+    client.subscribe("showInferenceStats")
+    client.loop_start()
     # Perform inference on the input stream
     infer_on_stream(args, client)
 

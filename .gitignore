@@ -1,3 +1,10 @@
+#Too heavy data
+Model/TensorFlow/faster_rcnn_inception_v2_coco_2018_01_28/model.ckpt.data-00000-of-00001
+Model/TensorFlow/ssd_inception_v2_coco_2018_01_28/model.ckpt.data-00000-of-00001
+Model/TensorFlow/ssd_mobilenet_v2_coco_2018_03_29/frozen_inference_graph.bin
+Model/TensorFlow/ssd_mobilenet_v2_coco_2018_03_29/model.ckpt.data-00000-of-00001
+Model/TensorFlow/YOLO-v3/FP16/frozen_darknet_yolov3_model.bin
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -5,6 +12,10 @@ __pycache__/
 
 # C extensions
 *.so
+#ML Models
+*.caffemodel
+*.pb
+*.onnx
 
 # Distribution / packaging
 .Python
@@ -127,5 +138,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+<<<<<<< HEAD
+=======
 
 Model/
+>>>>>>> 8eb800be019238e3bf82045e3ed2523306033d05

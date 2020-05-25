@@ -25,13 +25,27 @@ Install [OpenVINO Toolkit](https://docs.openvinotoolkit.org/latest/index.html) f
 Dependencies for Linux/Raspberry Pi
 
 ```
-sudo pip3 install paho-mqtt termcolor
-sudo apt-get install python3-opencv nodejs mosquitto
+sudo apt-get install python3-opencv nodejs mosquitto python3-pip libzmq3-dev libkrb5-dev ffmpeg cmake npm
+sudo pip3 install numpy paho-mqtt termcolor py-cpuinfo
 ```
 
 ### Instructions
 - Clone the repository: `git clone https://gitlab.com/josejacomeb/openvino-peoplecounter.git`
 - Change your current directory to the project directory *openvino-peoplecounter*
+- Install the dependencies for the Mosca Server
+
+
+```
+cd webservice/server
+npm install
+```
+
+- Install the dependencies for the Web server as well
+
+```
+cd ../ui
+npm install
+```
 - Setup your OpenVINO environment `source /opt/intel/openvino/bin/setupvars.sh -pyver 3.6`
 - Start the Mosquito Server `mosquitto -c websockets.conf`
 - Start the NodeJS Server `./WebServer/openVINOPeopleCounting/bin` (After you can access to the main page in a Web Browser with the adress *device_ip*:3000, for example localhost:3000)
