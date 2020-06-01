@@ -397,7 +397,7 @@ def infer_on_stream(args, client):
             cv2.putText(output_frame, info_model, (0, int(output_frame.shape[0] - 30)) , cv2.FONT_HERSHEY_SIMPLEX, 0.5, (44,235,131), 2, cv2.LINE_AA)
 
         if not args.headless:
-            cv2.imshow("Output Video", output_frame)
+            #cv2.imshow("Output Video", output_frame)
             if args.debug:
                 cv2.imshow("Original", frame)
                 cv2.imshow("Past detection", past_frame)

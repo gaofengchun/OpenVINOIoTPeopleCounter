@@ -45,7 +45,7 @@ class Network:
         self.model_xml = ""
         self.model_bin = ""
         self.infer_request = None
-
+        self.unsupported_layers = ""
     def load_model(self, model_location, device="CPU", cpu_extension=None):
         ### TODO: Load the model ###
         ### TODO: Check for supported layers ###
@@ -57,6 +57,18 @@ class Network:
         self.device = device
         self.core = IECore()
         self.model = self.core.read_network(model=self.model_xml, weights=self.model_bin) #Changing because deprecated
+        #Check for incompatible layers
+        layers_map = self.core.query_network(network=self.model, device_name=self.device)
+        for key, value in layers_map.items():
+            if not value == self.device:
+                self.unsupported_layers += key
+                self.unsupported_layers += "\n"
+
+        if not self.unsupported_layers == "":
+            print("The following layers are not supported: {}".format(self.unsupported_layers))
+            print("Please, load the appropiate extension of your device, in order to attempt to fix that issue or contact to the person who converted the model")
+        else:
+            print("All the layers of the network are supported in this {} device".format(self.device))
         self.net = self.core.load_network(self.model, device_name = self.device, num_requests = 1)
         if cpu_extension:
             self.core.add_extension(cpu_extension, device_name=self.device)
