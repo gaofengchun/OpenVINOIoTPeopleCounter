@@ -119,7 +119,8 @@ python3 main.py -i resources/Pedestrian_Detect_2_1_1.mp4 -m Model/person-detecti
   --port (Integer) Port of the Mosca Server, default: 3002
   --debug (Boolean Enable debug information, default: False
   --headless (Boolean) Enable headless mode, default: False
-  --stopSending (Boolean) Allow to the user to send or not send the stream via FFMPEG, default False
+  --stopSending or -s (Boolean) Allow to the user to send or not send the stream via FFMPEG, default False
+  --showInferenceStats or -t (Boolean) Show the probability of the inference, the ID of the person, default True
 ```
 ### Models used
 The first both models were converted with the model optimizer and they're in the Model's folders of the project. It was converted to FP16 and the instructions to convert are inside the Model/Tensorflow folder.

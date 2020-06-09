@@ -1,0 +1,1 @@
+{"videofile": "chinapedestrians.mp4", "model": "TF_YOLO-v3.xml", "device": "CPU", "processor": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz", "people_counted": 33, "avgFPS": 4, "avgInferenceTimems": 215}
