@@ -28,7 +28,7 @@ import logging as log
 from openvino.inference_engine import IENetwork, IECore
 from YoloParams import YoloParams                       #Import Yolo Parser
 from math import exp as exp
-import numpy as np
+from platform import processor, system
 
 
 class Network:
@@ -61,12 +61,6 @@ class Network:
         self.num = 3
         self.coords = 4
         self.classes = 80
-        self.rncnnClasses = ('__background__',
-           'aeroplane', 'bicycle', 'bird', 'boat',
-           'bottle', 'bus', 'car', 'cat', 'chair',
-           'cow', 'diningtable', 'dog', 'horse',
-           'motorbike', 'person', 'pottedplant',
-           'sheep', 'sofa', 'train', 'tvmonitor')
     def load_model(self, model_location, device="CPU", cpu_extension=None):
         ### TODO: Load the model ###
         ### TODO: Check for supported layers ###
@@ -77,7 +71,11 @@ class Network:
         self.model_bin = os.path.splitext(model_location)[0] + ".bin"
         self.device = device
         self.core = IECore()
-        self.model = self.core.read_network(model=self.model_xml, weights=self.model_bin) #Changing because deprecated
+        self.net = self.core.load_network(self.model, device_name = self.device, num_requests = 1)
+        if 'arm' in platform():
+            self.model = self.core.load_network(network=self.net, device_name=self.device, num_requests=1)
+        else:
+            self.model = self.core.read_network(model=self.model_xml, weights=self.model_bin) #Changing because deprecated
         #Check for incompatible layers
         layers_map = self.core.query_network(network=self.model, device_name=self.device)
         for key, value in layers_map.items():
@@ -90,7 +88,6 @@ class Network:
             print("Please, load the appropiate extension of your device, in order to attempt to fix that issue or contact to the person who converted the model")
         else:
             print("All the layers of the network are supported in this {} device".format(self.device))
-        self.net = self.core.load_network(self.model, device_name = self.device, num_requests = 1)
         if cpu_extension:
             self.core.add_extension(cpu_extension, device_name=self.device)
         self.input_layer = next(iter(self.model.inputs))
@@ -127,10 +124,12 @@ class Network:
         ### Return a vector of bounding boxes representing of the object.
         ##Type {'xmin': 297, 'xmax': 328, 'ymin': 612, 'ymax': 804, 'class_id': 0, 'confidence': 0.85626584}
         outputs = self.net.requests[self.infer_request].outputs
+        print(outputs)
         objects = list()
         if 'yolo' in self.model_xml.lower():
             for layer_name, out_blob in outputs.items():
                 out_blob = out_blob.reshape(self.net.requests[self.infer_request].outputs[layer_name].shape)
+                print(self.net.requests[self.infer_request].outputs[layer_name].shape)
                 layer_params = YoloParams(self.model.layers[layer_name].params, out_blob.shape[2])
                 objects += self.parse_yolo_region(out_blob, (self.input_height, self.input_width),
                                              (self.camera_height, self.camera_width), layer_params,
@@ -146,31 +145,10 @@ class Network:
                         objects_to_delete.append(objects[j])
             for i in objects_to_delete:
                 objects.remove(i)
-        elif 'rcnn' in self.model_xml.lower():
-            str_bbox_pred = list(outputs.keys())[0]
-            str_cls_prob = list(outputs.keys())[1]
-            bbox_pred = outputs[str_bbox_pred]
-            cls_prob = outputs[str_cls_prob]
-
-
-            #Taken from https://github.com/rbgirshick/py-faster-rcnn/blob/master/tools/demo.py
-            for cls_ind, cls in enumerate(self.rncnnClasses[1:]):
-                cls_ind += 1 # because we skipped background
-                cls_boxes = bbox_pred[:,4*cls_ind:4*(cls_ind + 1)]
-                cls_scores = cls_prob[:,cls_ind]
-                dets = np.hstack((cls_boxes,
-                                  cls_scores[:, np.newaxis])).astype(np.float32)
-                if 'person' in cls:
-                    for i in range(len(cls_boxes)):
-                        if int(cls_scores[i]*100) > 0:
-                            print("i: {}, Bounding Boxes? : {}, Probability: {} %".format(i, cls_boxes[i], int(cls_scores[i]*100)))
-
-        elif 'ssd' in self.model_xml.lower():
+        else:
             for i in outputs[self.output_layer][0][0]:
                 if i[2] >= self.prob_threshold:
                     objects.push({'xmin': int(i[3]*self.camera_width), 'xmax': int(i[5]*self.camera_width), 'ymin': int(i[4]*self.camera_height), 'ymax': int(i[6]*self.camera_height), 'class_id': i[1], 'confidence': i[2]})
-        else:
-            print("That architecture is not implemented yet")
         return objects
 
     #Define a Yolo Parser Region Taken from OpenVINO examples

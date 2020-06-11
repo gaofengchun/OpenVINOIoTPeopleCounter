@@ -39,6 +39,9 @@ sudo apt-get install python3-opencv nodejs mosquitto python3-pip libzmq3-dev lib
 sudo pip3 install numpy paho-mqtt termcolor py-cpuinfo
 ```
 
+#Instructions to convert Caffe and TF models to IR
+The instructions written in bash code, are located inside the appropriate Model Folder, source  
+
 ### Instructions
 - Clone the repository: `git clone https://github.com/josejacomeb/OpenVINOIoTPeopleCounter.git`
 - Change your current directory to the project directory *OpenVINOIoTPeopleCounter*
@@ -123,13 +126,18 @@ python3 main.py -i resources/Pedestrian_Detect_2_1_1.mp4 -m Model/person-detecti
   --showInferenceStats or -t (Boolean) Show the probability of the inference, the ID of the person, default True
 ```
 ### Models used
-The first both models were converted with the model optimizer and they're in the Model's folders of the project. It was converted to FP16 and the instructions to convert are inside the Model/Tensorflow folder.
+The first both models were converted with the model optimizer and they're in the Model's folders of the project. It was converted to FP16 and the instructions to convert are inside the Model/Tensorflow folder. The link for the converted models is the following: [Conveted models](https://unidebhu-my.sharepoint.com/:f:/g/personal/josejacomeb_mailbox_unideb_hu/Ens6826llXNDrvwOMZjc6sIBtC0uYiGd0PPjW15ifGGMxQ?e=yc1Ht0)
 
 - [Tensorflow ssd_inception_v2_coco_2018_01_28](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md)
 
 - [Tensorflow ssd_mobilenet_v2_coco_2018_03_29](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md)
 
-- [OpenVINO person-detection-retail-0013](https://docs.openvinotoolkit.org/2018_R5/_docs_Retail_object_detection_pedestrian_rmnet_ssd_0013_caffe_desc_person_detection_retail_0013.html)
+- [YOLO-V3](https://docs.openvinotoolkit.org/2018_R5/_docs_Retail_object_detection_pedestrian_rmnet_ssd_0013_caffe_desc_person_detection_retail_0013.html)
+
+- [YOLO-V3](https://docs.openvinotoolkit.org/2018_R5/_docs_Retail_object_detection_pedestrian_rmnet_ssd_0013_caffe_desc_person_detection_retail_0013.html)
+
+- [Faster_rcnn](https://docs.openvinotoolkit.org/2018_R5/_docs_Retail_object_detection_pedestrian_rmnet_ssd_0013_caffe_desc_person_detection_retail_0013.html)
+
 
 ###Performance
 
@@ -155,3 +163,6 @@ Two devices where tested in this experiment, the data is under the ExperimentalD
 | Model                            | People Counted| AVG FPS | AVG Inference Time[ms]   |
 | -------------                    |:-------------:| :-----:         |   :--------------:    |
 | person-detection-retail-0013     |   6           |  4             | 208                   |
+
+#Based in
+https://github.com/PINTO0309/OpenVINO-YoloV3/blob/b5caa1c2117749b84719c0cd9750c10c452ef471/openvino_yolov3_test.py#L91
