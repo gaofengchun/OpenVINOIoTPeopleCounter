@@ -103,8 +103,8 @@ def build_argparser():
     parser.add_argument("-n", help="", type=str, default="entry.json")
     parser.add_argument("-x", help="", type=str, default="exit.json")
     parser.add_argument("--debug", help="", type=bool, default=False)
-    parser.add_argument("--headless", help="headless_desc", type=bool, default=False)
-    parser.add_argument("--stopSending" ,"-s", help="Choose to send or not video", type=bool, default=True)
+    parser.add_argument("--headless", help="headless_desc", type=bool, default=True)
+    parser.add_argument("--stopSending" ,"-s", help="Choose to send or not video", type=bool, default=False)
     parser.add_argument("--showInferenceStats" ,"-t", help="Show the inference stats and video files", type=bool, default=True)
     return parser
 
@@ -439,6 +439,7 @@ def infer_on_stream(args, client):
         print(colored("Average Inference Time: {} ms".format(str(int(avg_time_inference/total_fps_measurements))), 'green'))
         print(colored("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~", 'green'))
     info = cpuinfo.get_cpu_info()
+
     finaldata = {
         "videofile": split(args.input)[1],
         "model": split(args.model)[1],
