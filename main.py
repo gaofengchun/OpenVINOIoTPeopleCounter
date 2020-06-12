@@ -104,7 +104,7 @@ def build_argparser():
     parser.add_argument("-x", help="", type=str, default="exit.json")
     parser.add_argument("--debug", help="", type=bool, default=False)
     parser.add_argument("--headless", help="headless_desc", type=bool, default=False)
-    parser.add_argument("--stopSending" ,"-s", help="Choose to send or not video", type=bool, default=True)
+    parser.add_argument("--stopSending" ,"-s", help="Choose to send or not video", type=bool, default=False)
     parser.add_argument("--showInferenceStats" ,"-t", help="Show the inference stats and video files", type=bool, default=True)
     return parser
 
