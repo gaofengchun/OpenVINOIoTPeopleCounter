@@ -1,1 +1,1 @@
-{"videofile": "Pedestrian_Detect_2_1_1.mp4", "model": "TF_YOLOv3-tiny.xml", "device": "CPU", "processor": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz", "people_counted": 2, "avgFPS": 29, "avgInferenceTimems": 22}
+{"videofile": "Pedestrian_Detect_2_1_1.mp4", "model": "TF_YOLOv3-tiny.xml", "device": "CPU", "processor": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz", "people_counted": 6, "avgFPS": 27, "avgInferenceTimems": 26}

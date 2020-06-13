@@ -31,7 +31,6 @@ from math import exp as exp
 from platform import processor, system
 import numpy as np
 
-
 class Network:
     """
     Load and configure inference plugins for the specified target devices
@@ -94,8 +93,10 @@ class Network:
             print("Please, load the appropiate extension of your device, in order to attempt to fix that issue or contact to the person who converted the model")
         else:
             print("All the layers of the network are supported in this {} device".format(self.device))
-
-        self.input_layer = next(iter(self.model.inputs))
+        if 'rcnn' in self.model_xml:
+            self.input_layer = list(self.model.inputs.keys())[1] #Because FasterRCNN has two inputs
+        else:
+            self.input_layer = next(iter(self.model.inputs))
         self.output_layer = next(iter(self.model.outputs))
         self.infer_request = 0
         return self.net
@@ -105,6 +106,7 @@ class Network:
         self.prob_threshold = confidence
     def get_input_shape(self):
         ### TODO: Return the shape of the input layer ###
+        shape = None
         self.input_height = self.model.inputs[self.input_layer].shape[2]
         self.input_width = self.model.inputs[self.input_layer].shape[3]
         return self.model.inputs[self.input_layer].shape
@@ -121,6 +123,7 @@ class Network:
         ### TODO: Return any necessary information ###
         ### Note: You may need to update the function parameters. ###
         status = self.net.requests[self.infer_request].wait(-1)
+
         return status
 
     def get_output(self):
@@ -170,7 +173,7 @@ class Network:
         elif 'ssd' in self.model_xml.lower():
             for i in outputs[self.output_layer][0][0]:
                 if i[2] >= self.prob_threshold:
-                    objects.push({'xmin': int(i[3]*self.camera_width), 'xmax': int(i[5]*self.camera_width), 'ymin': int(i[4]*self.camera_height), 'ymax': int(i[6]*self.camera_height), 'class_id': i[1], 'confidence': i[2]})
+                    objects.append({'xmin': int(i[3]*self.camera_width), 'xmax': int(i[5]*self.camera_width), 'ymin': int(i[4]*self.camera_height), 'ymax': int(i[6]*self.camera_height), 'class_id': i[1], 'confidence': i[2]})
         else:
             print("That architecture is not implemented yet")
         return objects

@@ -1,1 +1,0 @@
-{"videofile": "chinapedestrians.mp4", "model": "TF_ssd_inception_v2_coco_2018_01_28.xml", "device": "CPU", "processor": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz", "people_counted": 44, "avgFPS": 22, "avgInferenceTimems": 37}

@@ -43,6 +43,7 @@ from os.path import split, basename, splitext
 import cpuinfo
 import mimetypes
 mimetypes.init()
+import faulthandler; faulthandler.enable()
 
 # MQTT server environment variables
 HOSTNAME = socket.gethostname()
@@ -103,7 +104,7 @@ def build_argparser():
     parser.add_argument("-n", help="", type=str, default="entry.json")
     parser.add_argument("-x", help="", type=str, default="exit.json")
     parser.add_argument("--debug", help="", type=bool, default=False)
-    parser.add_argument("--headless", help="headless_desc", type=bool, default=False)
+    parser.add_argument("--headless", help="headless_desc", type=bool, default=True)
     parser.add_argument("--stopSending" ,"-s", help="Choose to send or not video", type=bool, default=False)
     parser.add_argument("--showInferenceStats" ,"-t", help="Show the inference stats and video files", type=bool, default=True)
     return parser
@@ -243,7 +244,6 @@ def infer_on_stream(args, client):
             ### TODO: Get the results of the inference request ###
             time_end_inference = int(round(time.time() * 1000))
             time_end_inference = (time_end_inference - time_inference)
-            #print("Time of inference: " +str(time_end_inference - time_inference) + "ms")
             output = infer_network.get_output()
 
             if args.debug:

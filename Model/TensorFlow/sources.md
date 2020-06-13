@@ -67,8 +67,21 @@ NAME_OF_MODEL=frozen_darknet_yolov3_model.pb
 ##Data type: FP16
 TYPE=FP16
 
-python3 ${MODIR}/mo_tf.py --input_meta_graph=${DIR}/model.ckpt.meta --data_type ${TYPE} --tensorflow_use_custom_operations_config ${MODIR}/extensions/front/tf/ssd_v2_support.json --output_dir ${DIR}/${TYPE} --progress --tensorflow_object_detection_api_pipeline_config ${DIR}/pipeline.config --model_name ${FRAMEWORK}_${DIR}
+python3 ${MODIR}/mo_tf.py --input_model=${DIR}/frozen_inference_graph.pb --data_type ${TYPE} --tensorflow_use_custom_operations_config ${MODIR}/extensions/front/tf/ssd_v2_support.json --output_dir ${DIR}/${TYPE} --progress --tensorflow_object_detection_api_pipeline_config ${DIR}/pipeline.config --model_name ${FRAMEWORK}_${DIR} --output=detection_classes,detection_scores,detection_boxes,num_detections --reverse_input_channels --input_shape=[1,300,300,3] --input=image_tensor
+
 ##Data type: half
 TYPE=half
 
-python3 ${MODIR}/mo_tf.py --input_meta_graph=${DIR}/model.ckpt.meta --data_type ${TYPE} --tensorflow_use_custom_operations_config ${MODIR}/extensions/front/tf/ssd_v2_support.json --output_dir ${DIR}/${TYPE} --progress --tensorflow_object_detection_api_pipeline_config ${DIR}/pipeline.config --model_name ${FRAMEWORK}_${DIR}
+python3 ${MODIR}/mo_tf.py --input_model=${DIR}/frozen_inference_graph.pb --data_type ${TYPE} --tensorflow_use_custom_operations_config ${MODIR}/extensions/front/tf/ssd_v2_support.json --output_dir ${DIR}/${TYPE} --progress --tensorflow_object_detection_api_pipeline_config ${DIR}/pipeline.config --model_name ${FRAMEWORK}_${DIR} --output=detection_classes,detection_scores,detection_boxes,num_detections --reverse_input_channels --input_shape=[1,300,300,3] --input=image_tensor
+
+#Faster
+DIR=faster_rcnn_inception_v2_coco_2018_01_28
+NAME_OF_MODEL=frozen_inference_graph.pb
+TYPE=FP16
+
+python3 ${MODIR}/mo_tf.py --input_model=${DIR}/${NAME_OF_MODEL} --transformations_config ${MODIR}/extensions/front/tf/faster_rcnn_support.json --reverse_input_channels --output=detection_classes,detection_scores,detection_boxes,num_detections --tensorflow_object_detection_api_pipeline_config ${DIR}/pipeline.config --input=image_tensor --data_type ${TYPE}  --progress --output_dir ${DIR}/${TYPE} --model_name ${FRAMEWORK}_${DIR} --input_shape=[1,600,1024,3]
+
+
+##Data type: half
+TYPE=half
+python3 ${MODIR}/mo_tf.py --input_model=${DIR}/${NAME_OF_MODEL} --transformations_config ${MODIR}/extensions/front/tf/faster_rcnn_support.json --reverse_input_channels --output=detection_classes,detection_scores,detection_boxes,num_detections --tensorflow_object_detection_api_pipeline_config ${DIR}/pipeline.config --input=image_tensor --data_type ${TYPE}  --progress --output_dir ${DIR}/${TYPE} --model_name ${FRAMEWORK}_${DIR} --input_shape=[1,600,1024,3]

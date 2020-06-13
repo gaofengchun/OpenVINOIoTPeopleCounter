@@ -80,7 +80,7 @@ npm run dev
 **Video Demonstration**
 
 #Test in Raspberry Pi
-Unfortunately, the FFMPEG server(ffserver) is deprecated, so until now, I didn't make it works, I connected it to the server of my laptop to test.
+Unfortunately, the FFMPEG server(ffserver) is deprecated in Raspbian Buster, so until now, I didn't make it works, I connected it to the server of my laptop to test.
 
 ![Test in RPI][resources/TestRPI.png]
 
@@ -108,7 +108,11 @@ python3 main.py -i --i resources/Pedestrian_Detect_2_1_1.mp4
 ```
 python3 main.py -i resources/Pedestrian_Detect_2_1_1.mp4 -m Model/person-detection-retail-0013.xml -d CPU -pt 0.6 | ffmpeg -v warning -f rawvideo -pixel_format bgr24 -video_size 768x432 -framerate 24 -i - http://0.0.0.0:3004/fac.ffm
 ```
+-Run in TestRPI
 
+```
+python3 main.py -i resources/Pedestrian_Detect_2_1_1.mp4 -m Model/TensorFlow/ssd_mobilenet_v2_coco_2018_03_29/FP16/TF_ssd_mobilenet_v2_coco_2018_03_29.xml -d MYRIAD -l /opt/intel/openvino/inference_engine/lib/armv7l/libmyriadPlugin.so
+```
 
 #### **Arguments**
 ```
@@ -126,7 +130,9 @@ python3 main.py -i resources/Pedestrian_Detect_2_1_1.mp4 -m Model/person-detecti
   --showInferenceStats or -t (Boolean) Show the probability of the inference, the ID of the person, default True
 ```
 ### Models used
-The first both models were converted with the model optimizer and they're in the Model's folders of the project. It was converted to FP16 and the instructions to convert are inside the Model/Tensorflow folder. The link for the converted models is the following: [Conveted models](https://unidebhu-my.sharepoint.com/:f:/g/personal/josejacomeb_mailbox_unideb_hu/Ens6826llXNDrvwOMZjc6sIBtC0uYiGd0PPjW15ifGGMxQ?e=yc1Ht0)
+The first both models were converted with the model optimizer and they're in the Model's folders of the project. It was converted to FP16 and the instructions to convert are inside the Model/TensorFlow folder. The link for the converted models is the following: [Converted models](https://unidebhu-my.sharepoint.com/:f:/g/personal/josejacomeb_mailbox_unideb_hu/Ens6826llXNDrvwOMZjc6sIBtC0uYiGd0PPjW15ifGGMxQ?e=yc1Ht0)
+
+The instruction to convert it to IR are located inside the [**Model/TensorFlow**](Model/TensorFlow) and [**Model/Caffe**](Model/Caffe) respectively.
 
 - [Tensorflow ssd_inception_v2_coco_2018_01_28](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md)
 
@@ -136,33 +142,40 @@ The first both models were converted with the model optimizer and they're in the
 
 - [YOLO-V3](https://docs.openvinotoolkit.org/2018_R5/_docs_Retail_object_detection_pedestrian_rmnet_ssd_0013_caffe_desc_person_detection_retail_0013.html)
 
-- [Faster_rcnn](https://docs.openvinotoolkit.org/2018_R5/_docs_Retail_object_detection_pedestrian_rmnet_ssd_0013_caffe_desc_person_detection_retail_0013.html)
+- [Faster_rcnn](https://dl.dropboxusercontent.com/s/o6ii098bu51d139/faster_rcnn_models.tgz?dl=0)
+Also you can download it via the OpenVINO Model Downloader as follows:
+```
+  /opt/intel/openvino/deployment_tools/open_model_zoo/tools/downloader/downloader.py --name faster_rcnn_inception_v2_coco -o Model/TensorFlow/
+```
 
 
 ###Performance
 
 Two devices where tested in this experiment, the data is under the ExperimentalData Folder, a Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz and a Raspberry Pi with it's MYRIAD Neural Compute Stick.
-####Test in the Laptop
+####Test in the Laptop with CPU
 
 | Model                            | People Counted| AVG FPS | AVG Inference Time[ms]   |
 | -------------                    |:-------------:| :-----:         |   :--------------:    |
-| person-detection-retail-0013     |   6           |  35             | 24                    |
-| ssd_inception_v2_coco_2018_01_28 | 12            |  42             | 20                    |   
-| ssd_mobilenet_v2_coco_2018_03_29 | 12            |  44             | 19                    |
+| YOLO-V3                          |  15            |  3             | 274                    |
+| YOLOV3-tiny                      |  6            |  27             | 26                    |
+| ssd_inception_v2_coco_2018_01_28 | 11            |  18             | 51                    |
 
 ####Test in the Laptop with NCS
 
 | Model                            | People Counted| AVG FPS | AVG Inference Time[ms]   |
 | -------------                    |:-------------:| :-----:         |   :--------------:    |
-| person-detection-retail-0013     |   6           |  7             | 132                    |
-| ssd_inception_v2_coco_2018_01_28 | 12            |  14             | 65                    |   
-| ssd_mobilenet_v2_coco_2018_03_29 | 12            |  14             | 65                    |
-####Test in the RPI with NCS
-* It was not possible to do with the another networks, I'm still investigating.
+| YOLO-V3                          |  14           |  3              | 382                    |
+| YOLOV3-tiny                      |  6            |  13             | 54                    |
+| ssd_inception_v2_coco_2018_01_28 | 11            |  12             | 76                    |  
+
+####Test in the Laptop with Integrated GPU
 
 | Model                            | People Counted| AVG FPS | AVG Inference Time[ms]   |
 | -------------                    |:-------------:| :-----:         |   :--------------:    |
-| person-detection-retail-0013     |   6           |  4             | 208                   |
+| YOLO-V3                          |  14           |  6              | 115                    |
+| YOLOV3-tiny                      |  7            |  36             | 18                    |
+| ssd_inception_v2_coco_2018_01_28 | 11            |  33             | 27                    |   
 
-#Based in
+#Code based in:
 https://github.com/PINTO0309/OpenVINO-YoloV3/blob/b5caa1c2117749b84719c0cd9750c10c452ef471/openvino_yolov3_test.py#L91
+and the openvino python examples

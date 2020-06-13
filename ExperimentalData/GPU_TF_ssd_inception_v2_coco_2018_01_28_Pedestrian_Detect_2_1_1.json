@@ -1,0 +1,1 @@
+{"videofile": "Pedestrian_Detect_2_1_1.mp4", "model": "TF_ssd_inception_v2_coco_2018_01_28.xml", "device": "GPU", "processor": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz", "people_counted": 11, "avgFPS": 27, "avgInferenceTimems": 33}
