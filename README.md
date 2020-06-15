@@ -12,7 +12,7 @@ This project is intended to develop a counting algorithm to know how many people
 My motivation behind this project is because in my country Ecuador is very common that Buses that connect cities are exceeding the maximum capacity of its units allowed by law, so people have to travel standing. My country has a important rate of accidents in highways, so passengers in overloaded buses might suffer more injuries even death. The Police Control is not enough, so I think that Artificial Vision Algorithms may help to control the maximum allowed number of passengers in a bus and surely, the data gathered by the algorithm could help to improve the transportation system in the future by taking better decisions in the schedules of the transport.
 
 ### Software Used:
-- OpenVINO™ Toolkit and  [person-detection-retail-0013 model](https://docs.openvinotoolkit.org/latest/_models_intel_person_detection_retail_0013_description_person_detection_retail_0013.html)
+- OpenVINO™ Toolkit
 - OpenCV
 - Paho-mqtt
 - Mosquitto
