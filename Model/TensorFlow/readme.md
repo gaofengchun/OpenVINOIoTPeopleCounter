@@ -13,11 +13,17 @@ You can find the model ins the following [TensorFlow's Model Zoo](https://github
 _Instructions working at June 2021_
 Download every model and unzip it inside the TensorFlow folder.
 Execute the following commands in your terminal, inside the TensorFlow folder. You may have to check the *DIR* and *NAME_OF_MODEL* variables to ensure that the names are the same as it's shown in your downloaded files.
-Setup the adress of the MO and the name of the Framework
+Setup the address of the MO and the name of the Framework
 ```bash
 MODIR=/opt/intel/openvino/deployment_tools/model_optimizer
 FRAMEWORK=TF
 ```
+Path for the configuration file with custom operation description of TensorFlow
+```bash
+/opt/intel/openvino/deployment_tools/model_optimizer/extensions/front/tf
+```
+
+
 ## Convert Faster RCNNN
 # Faster_rcnn
 Download the model form [here](http://download.tensorflow.org/models/object_detection/faster_rcnn_inception_v2_coco_2018_01_28.tar.gz)

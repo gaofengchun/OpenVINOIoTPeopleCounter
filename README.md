@@ -39,8 +39,15 @@ sudo apt-get install python3-opencv nodejs mosquitto python3-pip libzmq3-dev lib
 sudo pip3 install numpy paho-mqtt termcolor py-cpuinfo
 ```
 
-#Instructions to convert Caffe and TF models to IR
-The instructions written in bash code, are located inside the appropriate Model Folder, source  
+### Instructions to convert Caffe and TF models to IR
+The instructions written in bash code, in the [Caffe](Model/Caffe) and [TensorFlow](Model/TensorFlow) folders.
+It's not uncommon that a model have a custom layers, so it's necessary to know the [procedure](https://docs.openvinotoolkit.org/latest/_docs_HOWTO_Custom_Layers_Guide.html) to convert it in OpenVINO.
+If you are not sure if your device support a model format or some layers, please refer to the following [link](https://docs.openvinotoolkit.org/latest/_docs_IE_DG_supported_plugins_Supported_Devices.html).
+In Linux, the devices plugins are located in the following folder:
+```bash
+/opt/intel/openvino/inference_engine/lib/_device_architecture_/
+```
+
 
 ### Instructions
 - Clone the repository: `git clone https://github.com/josejacomeb/OpenVINOIoTPeopleCounter.git`
