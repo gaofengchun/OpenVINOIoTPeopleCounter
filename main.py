@@ -413,7 +413,7 @@ def infer_on_stream(args, client):
             cv2.rectangle(output_frame,(int(output_frame.shape[1]/2-30), output_frame.shape[0] - 40), (int(output_frame.shape[1]/2+40), output_frame.shape[0]), (0,0,0), -1)
             cv2.putText(output_frame, 'FPS: ' + str(fps), (int(output_frame.shape[1]/2  - 20), int(output_frame.shape[0] - 10)) , cv2.FONT_HERSHEY_SIMPLEX, 0.5, (44,235,131), 2, cv2.LINE_AA)
             cv2.putText(output_frame, info_system, (0, int(output_frame.shape[0] - 10)) , cv2.FONT_HERSHEY_SIMPLEX, 0.5, (44,235,131), 2, cv2.LINE_AA)
-            cv2.putText(output_frame, info_model, (0, int(output_frame.shape[0] - 30)) , cv2.FONT_HERSHEY_SIMPLEX, 0.5, (44,235,131), 2, cv2.LINE_AA)
+            #cv2.putText(output_frame, info_model, (0, int(output_frame.shape[0] - 30)) , cv2.FONT_HERSHEY_SIMPLEX, 0.5, (44,235,131), 2, cv2.LINE_AA)
         if not args.headless:
             cv2.imshow("Output Video", output_frame)
             if args.debug:
